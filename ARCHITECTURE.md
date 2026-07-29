@@ -1,10 +1,14 @@
 # Architecture
 
-This pure contract crate names typed storage, lookup, version, snapshot, push-subscription, fixture-scoped identifier-allocation, and identity-authority messages for the prototype's central Sema daemon. It owns no actors, sockets, or durable state.
+## Current implementation: wired legacy topology
 
-## The identity-authority operation (design v2, primary-56d1.11)
+This pure contract crate names typed storage, lookup, version, snapshot, push-subscription, fixture-scoped identifier-allocation, and identity-authority messages for a standalone central Sema daemon. It owns no actors, sockets, or durable state itself.
 
-The central daemon is the one logical allocation authority per deployment (settled: "seat it centrally in sema"). Its mandate is the keystone's two laws — never re-mint an identity for the same declared thing, never rebind an existing identity to a different thing. This crate names the bind-or-mint operation that enforces them:
+That is the wired legacy topology, not the approved architecture. The approved target has every component daemon stateful and owning its own embedded sema database. A separate small translator daemon — `sema-translator`, with this contract's approved counterpart `signal-sema-translator` — is authoritative only for shared naming and encodedID allocation. It does not become a central store for Ethos, Nomos, or Logos documents. `sema-translator` and `signal-sema-translator` are new repositories, not renames of `sema-storage` or this crate; this crate remains a frozen donor until its separately designed dissolution.
+
+## Existing identity-authority operation: mechanism donor
+
+The central daemon this crate names is the one logical allocation authority per deployment under the now-dead 2026-07-17 "seat it centrally in sema" claim; that claim was later overruled. Its mandate was the keystone's two laws — never re-mint an identity for the same declared thing, never rebind an existing identity to a different thing. This crate names the bind-or-mint operation that enforced them:
 
 - `Request::BindIdentities { whole: SchemaWholeHandle, declarations: Vec<DeclaredIdentity> }` — mint or bind the schema-whole's universe, then per declaration mint a fresh identity (new thing) or return the existing one (same thing).
 - `Reply::IdentitiesBound(BoundIdentities)` — the whole's `MintedUniverse` and one `IdentityAssignment` per declaration (its `TypeIdentity` plus a `BindOutcome` of `Minted`/`Bound`).
@@ -12,6 +16,8 @@ The central daemon is the one logical allocation authority per deployment (settl
 - Law-2 rejection `Rejection::IdentityRebindRejected { identity, bound_shape, attempted_shape }`; plus `EmptyDeclarationSet` and `IdentityNeverMinted`.
 
 All additions are append-only on the `Request`, `Reply`, and `Rejection` enums (new variants appended after the existing ones), so the rkyv wire encoding stays backward-compatible; `tests/round_trip.rs` covers the new request, reply, and rejection.
+
+This flat identity ontology — one `SchemaWholeHandle` universe with a flat `DeclaredKey`-to-`TypeIdentity` map beneath it — is superseded and must not guide the `signal-sema-translator` contract. The approved naming model is variant-fronted, nested module-owned nametables: each module owns the table of its own members' encodedIDs, and the module itself is an entry in its containing module's table; a thing's durable identity is the full chain of module-local encodedIDs, not a flat handle-plus-key pair.
 
 ## Revisable leans
 
