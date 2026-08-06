@@ -1,4 +1,4 @@
-use name_table::Identifier;
+use legacy_name_table::Identifier;
 use signal_sema_storage::{
     BelongsRelation, DocumentPayload, FamilyDeclaration, NameTableBytes, NexusActorDeclaration,
     NexusRoute, NexusRuntimeRoot, OpensRelation, RootViolation, SemaStorageRoot,

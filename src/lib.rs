@@ -2,14 +2,13 @@
 use std::collections::BTreeSet;
 
 use content_identity::{DomainSeparation, HashDomain, IdentityHasher, LayoutVersion};
-use core_logos::EncodedItem;
-use core_schema::EncodedSchema;
-use name_table::Identifier;
+use core_logos::WholeLogos;
+use legacy_name_table::Identifier;
 use rkyv::{Archive, Deserialize, Serialize};
 use signal_frame::{
-    ExchangeFrame, ExchangeFrameBody, ExchangeIdentifier, ExchangeLane, HandshakeRejectionReason,
-    HandshakeReply, HandshakeRequest, LaneSequence, NonEmpty, ProtocolVersion, Reply as FrameReply,
-    SessionEpoch, ShortHeader, SubReply,
+    ExchangeFrameBody, ExchangeIdentifier, ExchangeLane, HandshakeRejectionReason, HandshakeReply,
+    HandshakeRequest, LaneSequence, NonEmpty, ProtocolVersion, Reply as FrameReply, SessionEpoch,
+    SubReply,
 };
 
 pub struct DocumentPayloadDomain;
@@ -17,11 +16,11 @@ impl HashDomain for DocumentPayloadDomain {
     fn separation() -> DomainSeparation {
         DomainSeparation::Contextual {
             context: "language-engine/document-payload",
-            // Layout 2 carries namespace-variant Identifiers from the shared
-            // NameTable, replacing this wire contract's former flat identifier
-            // representation. Every archived root can contain an Identifier, so the
-            // archived representation and its content identity change truthfully.
-            layout: LayoutVersion::new(2),
+            // Layout 3 replaces the legacy per-item Logos arm with one validated
+            // WholeLogos archive and its matching nested vocabulary-name archive.
+            // The closed payload enum and its canonical Logos identity preimage both
+            // change, so this is an explicit identity-layout crossing.
+            layout: LayoutVersion::new(3),
         }
     }
 }
@@ -187,25 +186,72 @@ pub struct DocumentKey {
 #[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct NameTableBytes(pub Vec<u8>);
 
-/// The validated core-schema archive carried by this storage wire contract.
+/// Opaque bytes from the superseded core-schema archive train.
 ///
-/// `EncodedSchema` deliberately has no public rkyv implementation: its producer
-/// keeps the archive DTO private so every load validates the schema relation law.
-/// This wrapper is the only storable schema representation here. It is created from
-/// core-schema's canonical archive and decoded back through its validated boundary.
+/// The storage contract preserves this closed payload arm for forensic reads, but
+/// no longer claims to construct or interpret it through a current schema owner.
 #[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct EncodedSchemaArchive(Vec<u8>);
 
 impl EncodedSchemaArchive {
-    pub fn from_schema(schema: &EncodedSchema) -> Result<Self, CodecError> {
-        schema
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// Canonical, validated archive of one complete Logos encoded form.
+#[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WholeLogosArchive(Vec<u8>);
+
+impl WholeLogosArchive {
+    pub fn from_logos(logos: &WholeLogos) -> Result<Self, CodecError> {
+        let bytes = logos
             .to_archive_bytes()
-            .map(|bytes| Self(bytes.to_vec()))
-            .map_err(CodecError::SchemaArchive)
+            .map_err(CodecError::WholeLogosArchive)?;
+        Self::try_from_archive_bytes(bytes)
     }
 
-    pub fn to_schema(&self) -> Result<EncodedSchema, CodecError> {
-        EncodedSchema::from_archive_bytes(&self.0).map_err(CodecError::SchemaArchive)
+    pub fn try_from_archive_bytes(bytes: Vec<u8>) -> Result<Self, CodecError> {
+        WholeLogos::from_archive_bytes(&bytes).map_err(CodecError::WholeLogosArchive)?;
+        Ok(Self(bytes))
+    }
+
+    pub fn to_logos(&self) -> Result<WholeLogos, CodecError> {
+        WholeLogos::from_archive_bytes(&self.0).map_err(CodecError::WholeLogosArchive)
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// Canonical, validated archive of the production nested vocabulary table.
+#[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct VocabularyNameTableArchive(Vec<u8>);
+
+impl VocabularyNameTableArchive {
+    pub fn from_name_table(
+        table: &signal_sema_translator::VocabularyNameTable,
+    ) -> Result<Self, CodecError> {
+        let bytes = table
+            .to_archive_bytes()
+            .map_err(|error| CodecError::VocabularyNameTableArchive(error.to_string()))?;
+        Self::try_from_archive_bytes(bytes.as_ref().to_vec())
+    }
+
+    pub fn try_from_archive_bytes(bytes: Vec<u8>) -> Result<Self, CodecError> {
+        signal_sema_translator::VocabularyNameTable::from_archive_bytes(&bytes)
+            .map_err(|error| CodecError::VocabularyNameTableArchive(error.to_string()))?;
+        Ok(Self(bytes))
+    }
+
+    pub fn to_name_table(&self) -> Result<signal_sema_translator::VocabularyNameTable, CodecError> {
+        signal_sema_translator::VocabularyNameTable::from_archive_bytes(&self.0)
+            .map_err(|error| CodecError::VocabularyNameTableArchive(error.to_string()))
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
     }
 }
 
@@ -366,6 +412,8 @@ pub enum RootViolation {
     UnknownRouteActor,
     DuplicateFamily,
     ZeroLayoutVersion,
+    InvalidWholeLogosArchive,
+    InvalidVocabularyNameTableArchive,
 }
 
 /// The prototype has one real, fixture-scoped macro package. This stable typed
@@ -386,8 +434,8 @@ pub enum DocumentPayload {
     SemaStorage(SemaStorageRoot),
     Nomos(NomosPackage),
     Logos {
-        items: Vec<EncodedItem>,
-        names: NameTableBytes,
+        logos: WholeLogosArchive,
+        names: VocabularyNameTableArchive,
     },
 }
 
@@ -408,7 +456,16 @@ impl DocumentPayload {
             Self::SignalContract(root) => root.validate(),
             Self::NexusRuntime(root) => root.validate(),
             Self::SemaStorage(root) => root.validate(),
-            Self::TypeSchema { .. } | Self::Nomos(_) | Self::Logos { .. } => Ok(()),
+            Self::Logos { logos, names } => {
+                logos
+                    .to_logos()
+                    .map_err(|_| RootViolation::InvalidWholeLogosArchive)?;
+                names
+                    .to_name_table()
+                    .map_err(|_| RootViolation::InvalidVocabularyNameTableArchive)?;
+                Ok(())
+            }
+            Self::TypeSchema { .. } | Self::Nomos(_) => Ok(()),
         }
     }
 
@@ -435,9 +492,11 @@ impl DocumentPayload {
                 hasher.update_raw(&[4]);
                 Self::hash_archived(&mut hasher, package)?;
             }
-            Self::Logos { items, .. } => {
+            Self::Logos { logos, names } => {
                 hasher.update_raw(&[5]);
-                Self::hash_archived(&mut hasher, items)?;
+                logos.to_logos()?;
+                names.to_name_table()?;
+                hasher.update_length_prefixed(logos.as_bytes());
             }
         }
         Ok(ContentHash(hasher.finalize_bytes()))
@@ -560,8 +619,10 @@ pub enum Rejection {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CodecError {
-    #[error("schema archive: {0}")]
-    SchemaArchive(#[source] core_schema::EncodedSchemaLoadError),
+    #[error("whole Logos archive: {0}")]
+    WholeLogosArchive(#[source] core_logos::WholeLogosArchiveError),
+    #[error("vocabulary name-table archive: {0}")]
+    VocabularyNameTableArchive(String),
     #[error("encode: {0}")]
     Encode(String),
     #[error("decode: {0}")]
@@ -588,17 +649,15 @@ impl Wire {
     }
 
     pub fn frame_handshake_request(version: ProtocolVersion) -> Result<Vec<u8>, CodecError> {
-        ExchangeFrame::<Vec<u8>, Vec<u8>>::new(ExchangeFrameBody::HandshakeRequest(
+        Self::encode_legacy_frame_body(&ExchangeFrameBody::<Vec<u8>, Vec<u8>>::HandshakeRequest(
             HandshakeRequest::new(version),
         ))
-        .encode_length_prefixed()
-        .map_err(|error| CodecError::Encode(error.to_string()))
     }
 
     pub fn frame_handshake_reply(reply: HandshakeReply) -> Result<Vec<u8>, CodecError> {
-        ExchangeFrame::<Vec<u8>, Vec<u8>>::new(ExchangeFrameBody::HandshakeReply(reply))
-            .encode_length_prefixed()
-            .map_err(|error| CodecError::Encode(error.to_string()))
+        Self::encode_legacy_frame_body(&ExchangeFrameBody::<Vec<u8>, Vec<u8>>::HandshakeReply(
+            reply,
+        ))
     }
 
     pub fn frame_request(payload: Vec<u8>, sequence: u64) -> Result<Vec<u8>, CodecError> {
@@ -607,33 +666,25 @@ impl Wire {
             ExchangeLane::Connector,
             LaneSequence::new(sequence),
         );
-        ExchangeFrame::<Vec<u8>, Vec<u8>>::with_short_header(
-            ShortHeader::empty(),
-            ExchangeFrameBody::Request {
-                exchange,
-                request: signal_frame::Request::from_payload(payload),
-            },
-        )
-        .encode_length_prefixed()
-        .map_err(|error| CodecError::Encode(error.to_string()))
+        Self::encode_legacy_frame_body(&ExchangeFrameBody::Request {
+            exchange,
+            request: signal_frame::Request::from_payload(payload),
+        })
     }
 
     pub fn frame_reply(
         exchange: ExchangeIdentifier,
         payload: Vec<u8>,
     ) -> Result<Vec<u8>, CodecError> {
-        ExchangeFrame::<Vec<u8>, Vec<u8>>::new(ExchangeFrameBody::Reply {
+        Self::encode_legacy_frame_body(&ExchangeFrameBody::Reply {
             exchange,
             reply: FrameReply::committed(NonEmpty::single(SubReply::Ok(payload))),
         })
-        .encode_length_prefixed()
-        .map_err(|error| CodecError::Encode(error.to_string()))
     }
 
     pub fn decode_frame(bytes: &[u8]) -> Result<FrameMessage, CodecError> {
-        let frame = ExchangeFrame::<Vec<u8>, Vec<u8>>::decode_length_prefixed(bytes)
-            .map_err(|error| CodecError::Decode(error.to_string()))?;
-        match frame.into_body() {
+        let body = Self::decode_legacy_frame_body(bytes)?;
+        match body {
             ExchangeFrameBody::HandshakeRequest(request) => {
                 Ok(FrameMessage::HandshakeRequest(request.version()))
             }
@@ -657,6 +708,49 @@ impl Wire {
                 }
             },
         }
+    }
+
+    fn encode_legacy_frame_body(
+        body: &ExchangeFrameBody<Vec<u8>, Vec<u8>>,
+    ) -> Result<Vec<u8>, CodecError> {
+        let archive = rkyv::to_bytes::<rkyv::rancor::Error>(body)
+            .map_err(|error| CodecError::Encode(error.to_string()))?;
+        let payload_length = 8_usize
+            .checked_add(archive.len())
+            .and_then(|length| u32::try_from(length).ok())
+            .ok_or(CodecError::FrameTooLarge)?;
+        let mut framed = Vec::with_capacity(4 + payload_length as usize);
+        framed.extend_from_slice(&payload_length.to_be_bytes());
+        framed.extend_from_slice(&[0; 8]);
+        framed.extend_from_slice(&archive);
+        Ok(framed)
+    }
+
+    fn decode_legacy_frame_body(
+        bytes: &[u8],
+    ) -> Result<ExchangeFrameBody<Vec<u8>, Vec<u8>>, CodecError> {
+        let length_bytes: [u8; 4] = bytes
+            .get(..4)
+            .and_then(|prefix| prefix.try_into().ok())
+            .ok_or_else(|| CodecError::Decode("frame has no complete length prefix".into()))?;
+        let expected = u32::from_be_bytes(length_bytes) as usize;
+        let payload = &bytes[4..];
+        if payload.len() != expected {
+            return Err(CodecError::Decode(format!(
+                "frame length is {}, expected {expected}",
+                payload.len()
+            )));
+        }
+        let (short_header, archive) = payload
+            .split_at_checked(8)
+            .ok_or_else(|| CodecError::Decode("frame has no complete short header".into()))?;
+        if short_header != [0; 8] {
+            return Err(CodecError::Decode(
+                "legacy storage frame has a nonzero short header".into(),
+            ));
+        }
+        rkyv::from_bytes::<ExchangeFrameBody<Vec<u8>, Vec<u8>>, rkyv::rancor::Error>(archive)
+            .map_err(|error| CodecError::Decode(error.to_string()))
     }
 
     pub fn handshake_reply(peer: ProtocolVersion) -> HandshakeReply {
@@ -685,5 +779,39 @@ pub enum FrameMessage {
 impl FrameMessage {
     pub fn is_accepted_handshake(&self) -> bool {
         matches!(self, Self::HandshakeReply(HandshakeReply::Accepted(_)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DocumentPayload, RootViolation, VocabularyNameTableArchive, WholeLogosArchive};
+
+    #[test]
+    fn logos_payload_defensively_refuses_bypassed_invalid_archives() {
+        let valid_names = VocabularyNameTableArchive::from_name_table(
+            &signal_sema_translator::VocabularyNameTable::new(),
+        )
+        .expect("archive names");
+        let invalid_logos = DocumentPayload::Logos {
+            logos: WholeLogosArchive(b"not WholeLogos".to_vec()),
+            names: valid_names,
+        };
+        assert_eq!(
+            invalid_logos.validate(),
+            Err(RootViolation::InvalidWholeLogosArchive)
+        );
+        assert!(invalid_logos.content_hash().is_err());
+
+        let valid_logos = WholeLogosArchive::from_logos(&core_logos::WholeLogos::new(Vec::new()))
+            .expect("archive WholeLogos");
+        let invalid_names = DocumentPayload::Logos {
+            logos: valid_logos,
+            names: VocabularyNameTableArchive(b"not a name table".to_vec()),
+        };
+        assert_eq!(
+            invalid_names.validate(),
+            Err(RootViolation::InvalidVocabularyNameTableArchive)
+        );
+        assert!(invalid_names.content_hash().is_err());
     }
 }

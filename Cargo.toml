@@ -1,6 +1,6 @@
 [package]
 name="signal-sema-storage"
-version="0.2.0"
+version="0.3.0"
 edition="2024"
 rust-version="1.89"
 license="MIT OR Apache-2.0"
@@ -8,13 +8,14 @@ repository="https://github.com/LiGoldragon/signal-sema-storage"
 description="Typed wire contract for the central language-engine Sema storage daemon"
 [dependencies]
 rkyv={version="0.8",features=["bytecheck"]}
-content-identity={git="https://github.com/LiGoldragon/protos.git",rev="d2912838b9ea18eae9ba3f7172e07e92823fa323"}
-core-schema={git="https://github.com/LiGoldragon/core-schema.git",rev="90e71212f86507338f11913d334d4c12a225b781"}
-signal-frame={git="https://github.com/LiGoldragon/signal-frame.git",rev="f46872e7e8edae5264c892443d415a273b231234",default-features=false}
-core-logos={git="https://github.com/LiGoldragon/core-logos.git",rev="e0cec4110fd3b79c1258cf145e3791e34f7349d4"}
-name-table={git="https://github.com/LiGoldragon/protos.git",rev="d2912838b9ea18eae9ba3f7172e07e92823fa323"}
+content-identity={git="https://github.com/LiGoldragon/content-identity.git",rev="24b43bae5d9748b0e7f679c6ec9f85a643c4d36a"}
+core-logos={git="https://github.com/LiGoldragon/core-logos.git",rev="abee4036fbeb58c767ef7dc3489804e2afd5c6e1"}
+legacy-name-table={package="name-table",git="https://github.com/LiGoldragon/name-table.git",rev="196610e2907687dcb8dbd0d2dfaafe4aefd9fa27"}
+signal-frame={git="https://github.com/LiGoldragon/signal-frame.git",rev="0786fbe8caf27552afcdd5deb85bc82ec6088337",default-features=false}
+signal-sema-translator={git="https://github.com/LiGoldragon/signal-sema-translator.git",rev="3a26cb43f8ce7f9fe85da64d19aa55aa662943ce"}
 thiserror="2"
 [dev-dependencies]
+encoded-name-table={package="name-table",git="https://github.com/LiGoldragon/name-table.git",rev="a22f48d8040ab9235f3552ad8654ff8e27b8157d"}
 tempfile="3"
 [lints.rust]
 unsafe_code="forbid"
