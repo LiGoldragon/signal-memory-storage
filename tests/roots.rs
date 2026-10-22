@@ -1,7 +1,7 @@
 use legacy_name_table::Identifier;
-use signal_sema_storage::{
+use signal_memory_storage::{
     BelongsRelation, DocumentPayload, FamilyDeclaration, NameTableBytes, NexusActorDeclaration,
-    NexusRoute, NexusRuntimeRoot, OpensRelation, RootViolation, SemaStorageRoot,
+    NexusRoute, NexusRuntimeRoot, OpensRelation, RootViolation, MemoryStorageRoot,
     SignalContractRoot, StreamDeclaration,
 };
 
@@ -36,8 +36,8 @@ fn nexus_routes_only_between_declared_actors() {
 }
 
 #[test]
-fn sema_alone_owns_versioned_families() {
-    let root = SemaStorageRoot {
+fn memory_alone_owns_versioned_families() {
+    let root = MemoryStorageRoot {
         families: vec![FamilyDeclaration {
             family: Identifier::Fixture(1),
             layout_version: 0,
@@ -72,7 +72,7 @@ fn names_are_excluded_from_root_identity() {
 
 #[test]
 fn structural_edits_move_root_identity() {
-    let payload = DocumentPayload::SemaStorage(SemaStorageRoot {
+    let payload = DocumentPayload::MemoryStorage(MemoryStorageRoot {
         families: vec![FamilyDeclaration {
             family: Identifier::Fixture(1),
             layout_version: 1,
@@ -80,7 +80,7 @@ fn structural_edits_move_root_identity() {
         names: NameTableBytes(Vec::new()),
     });
     let mut changed = payload.clone();
-    let DocumentPayload::SemaStorage(root) = &mut changed else {
+    let DocumentPayload::MemoryStorage(root) = &mut changed else {
         unreachable!()
     };
     root.families[0].layout_version = 2;

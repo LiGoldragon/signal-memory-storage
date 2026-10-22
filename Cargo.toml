@@ -1,11 +1,11 @@
 [package]
-name="signal-sema-storage"
+name="signal-memory-storage"
 version="0.3.0"
 edition="2024"
 rust-version="1.89"
 license="MIT OR Apache-2.0"
-repository="https://github.com/LiGoldragon/signal-sema-storage"
-description="Typed wire contract for the central language-engine Sema storage daemon"
+repository="https://github.com/LiGoldragon/signal-memory-storage"
+description="Typed wire contract for the central language-engine memory storage service"
 [dependencies]
 rkyv={version="0.8",features=["bytecheck"]}
 content-identity={git="https://github.com/LiGoldragon/content-identity.git",rev="24b43bae5d9748b0e7f679c6ec9f85a643c4d36a"}

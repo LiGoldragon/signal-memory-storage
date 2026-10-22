@@ -1,4 +1,4 @@
-//! Typed binary contract for the prototype's central, standalone Sema daemon.
+//! Typed binary contract for the prototype's central, standalone Memory service.
 use std::collections::BTreeSet;
 
 use content_identity::{DomainSeparation, HashDomain, IdentityHasher, LayoutVersion};
@@ -57,8 +57,8 @@ pub struct IdentifierBlock {
 
 // ---- Identity authority (design v2, primary-56d1.11) ----
 //
-// The central Sema daemon is the one logical allocation authority per deployment
-// (settled: "seat it centrally in sema", 2026-07-17). Its whole mandate is the two
+// The central Memory service is the one logical allocation authority per deployment
+// (settled: "seat it centrally in memory", 2026-07-17). Its whole mandate is the two
 // laws of the keystone: never re-mint an identity for the same declared thing, and
 // never rebind an existing identity to a different thing. These types name the
 // bind-or-mint operation that enforces them.
@@ -171,7 +171,7 @@ pub enum DocumentKind {
     TypeSchema,
     SignalContract,
     NexusRuntime,
-    SemaStorage,
+    MemoryStorage,
     Nomos,
     Logos,
 }
@@ -338,11 +338,11 @@ pub struct FamilyDeclaration {
     pub layout_version: u32,
 }
 #[derive(Archive, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct SemaStorageRoot {
+pub struct MemoryStorageRoot {
     pub families: Vec<FamilyDeclaration>,
     pub names: NameTableBytes,
 }
-impl SemaStorageRoot {
+impl MemoryStorageRoot {
     pub fn validate(&self) -> Result<(), RootViolation> {
         let families: BTreeSet<_> = self.families.iter().map(|entry| entry.family).collect();
         if families.len() != self.families.len() {
@@ -392,11 +392,11 @@ impl From<&NexusRuntimeRoot> for NexusRuntimeIdentity {
 }
 
 #[derive(Archive, Serialize)]
-struct SemaStorageIdentity {
+struct MemoryStorageIdentity {
     families: Vec<FamilyDeclaration>,
 }
-impl From<&SemaStorageRoot> for SemaStorageIdentity {
-    fn from(root: &SemaStorageRoot) -> Self {
+impl From<&MemoryStorageRoot> for MemoryStorageIdentity {
+    fn from(root: &MemoryStorageRoot) -> Self {
         Self {
             families: root.families.clone(),
         }
@@ -431,7 +431,7 @@ pub enum DocumentPayload {
     },
     SignalContract(SignalContractRoot),
     NexusRuntime(NexusRuntimeRoot),
-    SemaStorage(SemaStorageRoot),
+    MemoryStorage(MemoryStorageRoot),
     Nomos(NomosPackage),
     Logos {
         logos: WholeLogosArchive,
@@ -445,7 +445,7 @@ impl DocumentPayload {
             Self::TypeSchema { .. } => DocumentKind::TypeSchema,
             Self::SignalContract(_) => DocumentKind::SignalContract,
             Self::NexusRuntime(_) => DocumentKind::NexusRuntime,
-            Self::SemaStorage(_) => DocumentKind::SemaStorage,
+            Self::MemoryStorage(_) => DocumentKind::MemoryStorage,
             Self::Nomos(_) => DocumentKind::Nomos,
             Self::Logos { .. } => DocumentKind::Logos,
         }
@@ -455,7 +455,7 @@ impl DocumentPayload {
         match self {
             Self::SignalContract(root) => root.validate(),
             Self::NexusRuntime(root) => root.validate(),
-            Self::SemaStorage(root) => root.validate(),
+            Self::MemoryStorage(root) => root.validate(),
             Self::Logos { logos, names } => {
                 logos
                     .to_logos()
@@ -484,9 +484,9 @@ impl DocumentPayload {
                 hasher.update_raw(&[2]);
                 Self::hash_archived(&mut hasher, &NexusRuntimeIdentity::from(root))?;
             }
-            Self::SemaStorage(root) => {
+            Self::MemoryStorage(root) => {
                 hasher.update_raw(&[3]);
-                Self::hash_archived(&mut hasher, &SemaStorageIdentity::from(root))?;
+                Self::hash_archived(&mut hasher, &MemoryStorageIdentity::from(root))?;
             }
             Self::Nomos(package) => {
                 hasher.update_raw(&[4]);

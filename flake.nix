@@ -1,5 +1,5 @@
 {
-  description = "signal-sema-storage — typed archive and wire contract for the legacy central Sema storage donor";
+  description = "signal-memory-storage — typed archive and wire contract for the central memory storage contract";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -36,7 +36,7 @@
           });
         };
         devShells.default = pkgs.mkShell {
-          name = "signal-sema-storage";
+          name = "signal-memory-storage";
           packages = [ pkgs.jujutsu toolchain ];
         };
       });

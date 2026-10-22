@@ -456,7 +456,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "signal-sema-storage"
+name = "signal-memory-storage"
 version = "0.3.0"
 dependencies = [
  "content-identity 0.3.0",

@@ -6,7 +6,7 @@ use encoded_name_table::{
     Declaration, LocalEncodedId, Name, OperationKey, RootDeclaration, SealRequest, TableMutability,
 };
 use signal_frame::{HandshakeReply, ProtocolVersion, SIGNAL_FRAME_PROTOCOL_VERSION};
-use signal_sema_storage::{
+use signal_memory_storage::{
     BindOutcome, BoundIdentities, ContentHash, DeclaredIdentity, DeclaredKey, DeclaredShape,
     DocumentKey, DocumentKind, DocumentPayload, FixtureScope, FrameMessage, IdentityAssignment,
     IdentityIntent, MintedUniverse, Rejection, Reply, Request, SchemaWholeHandle, SlotIdentifier,

@@ -2,9 +2,9 @@
 
 ## Current implementation: wired legacy topology
 
-This pure contract crate names typed storage, lookup, version, snapshot, push-subscription, fixture-scoped identifier-allocation, and identity-authority messages for a standalone central Sema daemon. It owns no actors, sockets, or durable state itself.
+This pure contract crate names typed storage, lookup, version, snapshot, push-subscription, fixture-scoped identifier-allocation, and identity-authority messages for a standalone central Memory service. It owns no actors, sockets, or durable state itself.
 
-That is the wired legacy topology, not the approved architecture. The approved target has every component daemon stateful and owning its own embedded sema database. A separate small translator daemon — `sema-translator`, with this contract's approved counterpart `signal-sema-translator` — is authoritative only for shared naming and encodedID allocation. It does not become a central store for Ethos, Nomos, or Logos documents. `sema-translator` and `signal-sema-translator` are new repositories, not renames of `sema-storage` or this crate; this crate remains a frozen donor until its separately designed dissolution.
+That is the wired legacy topology, not the approved architecture. The approved target has every component daemon stateful and owning its own embedded memory database. A separate small translator daemon — `sema-translator`, with this contract's approved counterpart `signal-sema-translator` — is authoritative only for shared naming and encodedID allocation. It does not become a central store for Ethos, Nomos, or Logos documents. `sema-translator` and `signal-sema-translator` are distinct repositories; `signal-memory-storage` carries this storage contract.
 
 The current Logos archive train is one deliberate exception to that freeze. The live `DocumentPayload::Logos` arm carries the canonical validated archive of one complete `WholeLogos` encoded form plus the canonical validated archive of its production nested vocabulary table. It does not expose the superseded per-item `EncodedItem` carrier or a flat name table. Both archives cross their owners' checked reconstruction boundaries before the payload is accepted or hashed; only the `WholeLogos` bytes participate in document content identity, because names are projection data. This replacement changes the closed payload enum and therefore advances `DocumentPayloadDomain` to layout 3. It updates the donor's archive truth without reviving the central topology or choosing any later identity-migration scheme.
 
@@ -12,7 +12,7 @@ The older `TypeSchema` arm remains byte-for-byte representable as an opaque arch
 
 ## Existing identity-authority operation: mechanism donor
 
-The central daemon this crate names is the one logical allocation authority per deployment under the now-dead 2026-07-17 "seat it centrally in sema" claim; that claim was later overruled. Its mandate was the keystone's two laws — never re-mint an identity for the same declared thing, never rebind an existing identity to a different thing. This crate names the bind-or-mint operation that enforced them:
+The central service this crate names is the one logical allocation authority per deployment under the now-dead 2026-07-17 "seat it centrally in memory" claim; that claim was later overruled. Its mandate was the keystone's two laws — never re-mint an identity for the same declared thing, never rebind an existing identity to a different thing. This crate names the bind-or-mint operation that enforced them:
 
 - `Request::BindIdentities { whole: SchemaWholeHandle, declarations: Vec<DeclaredIdentity> }` — mint or bind the schema-whole's universe, then per declaration mint a fresh identity (new thing) or return the existing one (same thing).
 - `Reply::IdentitiesBound(BoundIdentities)` — the whole's `MintedUniverse` and one `IdentityAssignment` per declaration (its `TypeIdentity` plus a `BindOutcome` of `Minted`/`Bound`).
