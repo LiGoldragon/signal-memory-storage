@@ -1,7 +1,7 @@
 use legacy_name_table::Identifier;
 use signal_memory_storage::{
-    BelongsRelation, DocumentPayload, FamilyDeclaration, NameTableBytes, NexusActorDeclaration,
-    NexusRoute, NexusRuntimeRoot, OpensRelation, RootViolation, MemoryStorageRoot,
+    BelongsRelation, DocumentPayload, FamilyDeclaration, MemoryStorageRoot, NameTableBytes,
+    NexusActorDeclaration, NexusRoute, NexusRuntimeRoot, OpensRelation, RootViolation,
     SignalContractRoot, StreamDeclaration,
 };
 
