@@ -12,7 +12,7 @@ content-identity={git="https://github.com/LiGoldragon/content-identity.git",rev=
 core-logos={git="https://github.com/LiGoldragon/core-logos.git",rev="abee4036fbeb58c767ef7dc3489804e2afd5c6e1"}
 legacy-name-table={package="name-table",git="https://github.com/LiGoldragon/name-table.git",rev="196610e2907687dcb8dbd0d2dfaafe4aefd9fa27"}
 signal-frame={git="https://github.com/LiGoldragon/signal-frame.git",rev="0786fbe8caf27552afcdd5deb85bc82ec6088337",default-features=false}
-signal-sema-translator={git="https://github.com/LiGoldragon/signal-sema-translator.git",rev="3a26cb43f8ce7f9fe85da64d19aa55aa662943ce"}
+signal-memory-translator={git="https://github.com/LiGoldragon/signal-memory-translator.git",rev="3a26cb43f8ce7f9fe85da64d19aa55aa662943ce"}
 thiserror="2"
 [dev-dependencies]
 encoded-name-table={package="name-table",git="https://github.com/LiGoldragon/name-table.git",rev="a22f48d8040ab9235f3552ad8654ff8e27b8157d"}

@@ -231,7 +231,7 @@ pub struct VocabularyNameTableArchive(Vec<u8>);
 
 impl VocabularyNameTableArchive {
     pub fn from_name_table(
-        table: &signal_sema_translator::VocabularyNameTable,
+        table: &signal_memory_translator::VocabularyNameTable,
     ) -> Result<Self, CodecError> {
         let bytes = table
             .to_archive_bytes()
@@ -240,13 +240,13 @@ impl VocabularyNameTableArchive {
     }
 
     pub fn try_from_archive_bytes(bytes: Vec<u8>) -> Result<Self, CodecError> {
-        signal_sema_translator::VocabularyNameTable::from_archive_bytes(&bytes)
+        signal_memory_translator::VocabularyNameTable::from_archive_bytes(&bytes)
             .map_err(|error| CodecError::VocabularyNameTableArchive(error.to_string()))?;
         Ok(Self(bytes))
     }
 
-    pub fn to_name_table(&self) -> Result<signal_sema_translator::VocabularyNameTable, CodecError> {
-        signal_sema_translator::VocabularyNameTable::from_archive_bytes(&self.0)
+    pub fn to_name_table(&self) -> Result<signal_memory_translator::VocabularyNameTable, CodecError> {
+        signal_memory_translator::VocabularyNameTable::from_archive_bytes(&self.0)
             .map_err(|error| CodecError::VocabularyNameTableArchive(error.to_string()))
     }
 
@@ -789,7 +789,7 @@ mod tests {
     #[test]
     fn logos_payload_defensively_refuses_bypassed_invalid_archives() {
         let valid_names = VocabularyNameTableArchive::from_name_table(
-            &signal_sema_translator::VocabularyNameTable::new(),
+            &signal_memory_translator::VocabularyNameTable::new(),
         )
         .expect("archive names");
         let invalid_logos = DocumentPayload::Logos {

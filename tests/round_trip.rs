@@ -12,7 +12,7 @@ use signal_memory_storage::{
     IdentityIntent, MintedUniverse, Rejection, Reply, Request, SchemaWholeHandle, SlotIdentifier,
     TypeIdentity, VocabularyNameTableArchive, WholeLogosArchive, Wire,
 };
-use signal_sema_translator::{VocabularyEncodedId, VocabularyNameTable, VocabularyRoot};
+use signal_memory_translator::{VocabularyEncodedId, VocabularyNameTable, VocabularyRoot};
 
 fn encoded_id(root: VocabularyRoot, chain: &[u16]) -> VocabularyEncodedId {
     VocabularyEncodedId::new(
